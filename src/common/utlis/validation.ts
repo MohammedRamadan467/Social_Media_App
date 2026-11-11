@@ -54,7 +54,24 @@ const validationMessages = {
     110: {
         ar: "اي دي الإلكتروني غير صحيح",
         en: "Invalid id format"
+    },
+
+    111: {
+        ar: "محتوى البوست يجب ألا يقل عن حرف واحد",
+        en: "Post content must contain at least 1 character"
+    },
+
+    112: {
+       ar: "محتوى البوست يجب ألا يتجاوز 50000 حرف",
+       en: "Post content must not exceed 50000 characters"
     }
+
+
+
+
+
+
+
 }
 
 
@@ -105,6 +122,26 @@ export const generalValidationFields = {
                 message: getValidationMessages(lang, 105)
             }),
 
+    content: (lang: LanguageEnum) =>
+        z.string()
+            .min(1, {
+                message: getValidationMessages(lang, 111)
+            })
+            .max(50000, {
+                message: getValidationMessages(lang, 112)
+            }).
+            optional(),
+
+
+    file: (lang: LanguageEnum)=> z.strictObject({
+            fieldname: z.string(),
+            originalname: z.string(),
+            encoding: z.string(),
+            mimetype: z.string(),
+            buffer: z.instanceof(Buffer),
+            size: z.number(),
+            path: z.string(),
+        }),
 
     username: (lang: LanguageEnum) =>
         z.string()
@@ -145,16 +182,6 @@ export const generalValidationFields = {
         }),
 
     id: (lang: LanguageEnum) => z.string().refine((data) => { return mongoose.Types.ObjectId.isValid(data) }, { message: getValidationMessages(lang, 110) }),
-
-    file: (lang: LanguageEnum) => z.strictObject({
-        fieldname: z.string(),
-        originalname: z.string(),
-        encoding: z.string(),
-        mimetype: z.string(),
-        buffer: z.instanceof(Buffer),
-        size: z.number(),
-        path: z.string(),
-    }),
 
 
 }

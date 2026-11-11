@@ -19,3 +19,5 @@ __exportStar(require("./error.interface"), exports);
 __exportStar(require("./user.interface"), exports);
 __exportStar(require("./validation.interface"), exports);
 __exportStar(require("./paginate.interface"), exports);
+__exportStar(require("./post.interface"), exports);
+__exportStar(require("./comment.interface"), exports);

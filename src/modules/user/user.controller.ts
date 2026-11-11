@@ -1,10 +1,13 @@
 import { NextFunction, Request, Response, Router } from 'express';
 import { authentication, authorization } from '../../middleware/authentication.middleware';
-import { RoleEnum, tokenTypeEnum } from '../../common/enum';
-import { responseFormatter, validation } from '../../middleware';
+import { RoleEnum, StorageApproachEnum, tokenTypeEnum } from '../../common/enum';
+import { responseFormatter, uploadMiddleware, validation } from '../../middleware';
 import userService from "./user.service";
 import { IResponse } from '../../common/interface';
 import * as validators from './user.validation'
+import { getIssuer } from '../../common/utlis';
+import { fileValidation, localFielupload } from '../../common/utlis/multer';
+import { IFile } from '../../common/types';
 
 
 const router = Router();
@@ -17,16 +20,18 @@ router.get("/", authentication(), responseFormatter(
 ))
 
 
-// router.patch
-// ("/profile-image" ,
-//       authentication() ,
-//        uploadMiddleware({multerMiddleware: localFielupload({maxFileSize : 2 }).single("attachment") , customPath :"users" , validation : fileValidation.image }) ,
+router.patch ("/profile-image" ,
+  authentication() , 
+  uploadMiddleware({
+  multerMiddleware: localFielupload({storageApproach:StorageApproachEnum.MEMORY}).single("attachment") ,
+  customPath :"User" , 
+  validation : fileValidation.image 
 
-//          async (req,res,next)=>{
-//      req.user.image = req.file.finalPath
-//      await req.user.save()
-//      return successResponse({res , data:{user : req.user}})
-// })
+    }) , responseFormatter(
+         async (req: Request, res: Response, next: NextFunction):Promise<IResponse<Record<string , string>>>=>{
+         const key = await userService.profileImage(req.file as IFile, req.user)
+        return {data  : {key}}
+}))
 
 
 router.patch("/", authentication(), authorization(RoleEnum.USER), responseFormatter(
@@ -39,7 +44,7 @@ router.patch("/", authentication(), authorization(RoleEnum.USER), responseFormat
 
 router.post("/rotate-token", authentication(tokenTypeEnum.REFRESH), responseFormatter(
   async (req: Request, res: Response, next: NextFunction): Promise<IResponse> => {
-    const data = await userService.rotateToken(req.payload, req.user, `${req.protocol}://${req.host}`)
+    const data = await userService.rotateToken(req.payload, req.user, getIssuer(req))
     return { status: 200, data }
 
   }

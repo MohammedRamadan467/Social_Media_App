@@ -4,6 +4,8 @@ import authenticationService from "./authentication.service";
 import { responseFormatter, validation } from "../../middleware";
 import * as validators from './authentication.validation'
 import { IResponse, IUser } from "../../common/interface";
+import { getIssuer } from "../../common/utlis";
+import { ILoginResponse, ISignupWithGmailResponse } from "./entities/authenticatio.entity";
 const router = Router({ strict: true, caseSensitive: true })
 
 
@@ -17,8 +19,8 @@ router.post("/signup", validation(validators.signup), responseFormatter(
 
 
 router.post("/signup-with-gmail", responseFormatter(
-    async (req: Request, res: Response, next: NextFunction): Promise<IResponse<{ access_token: string; refresh_token: string }>> => {
-        const { status, data } = await authenticationService.signupWithGmail(req.body, `${req.protocol}://${req.host}`)
+    async (req: Request, res: Response, next: NextFunction): Promise<IResponse<ILoginResponse>> => {
+        const { status, data } = await authenticationService.signupWithGmail(req.body, getIssuer(req))
         return { status, data }
     }
 ))
@@ -39,9 +41,9 @@ router.patch("/resend-confirm-email", validation(validators.resendConfirmEmail),
 
 
 router.post("/login", validation(validators.login), responseFormatter(
-    async (req: Request, res: Response, next: NextFunction) => {
-        const data = await authenticationService.login(req.validate.body, `${req.protocol}://${req.host}`)
-        return { status: 200, data }
+    async (req: Request, res: Response, next: NextFunction):Promise<IResponse<ILoginResponse>> => {
+        const data = await authenticationService.login(req.validate.body, getIssuer(req))
+        return { data , status: 200 }
     }))
 
 router.post("/request-forgot-password-code", validation(validators.requestForgotPasswordCode), responseFormatter(

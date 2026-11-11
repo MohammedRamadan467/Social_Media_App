@@ -47,6 +47,14 @@ const validationMessages = {
     110: {
         ar: "اي دي الإلكتروني غير صحيح",
         en: "Invalid id format"
+    },
+    111: {
+        ar: "محتوى البوست يجب ألا يقل عن حرف واحد",
+        en: "Post content must contain at least 1 character"
+    },
+    112: {
+        ar: "محتوى البوست يجب ألا يتجاوز 50000 حرف",
+        en: "Post content must not exceed 50000 characters"
     }
 };
 const getValidationMessages = (lang, code) => {
@@ -75,6 +83,23 @@ exports.generalValidationFields = {
         .max(16, {
         message: getValidationMessages(lang, 105)
     }),
+    content: (lang) => zod_1.z.string()
+        .min(1, {
+        message: getValidationMessages(lang, 111)
+    })
+        .max(50000, {
+        message: getValidationMessages(lang, 112)
+    }).
+        optional(),
+    file: (lang) => zod_1.z.strictObject({
+        fieldname: zod_1.z.string(),
+        originalname: zod_1.z.string(),
+        encoding: zod_1.z.string(),
+        mimetype: zod_1.z.string(),
+        buffer: zod_1.z.instanceof(Buffer),
+        size: zod_1.z.number(),
+        path: zod_1.z.string(),
+    }),
     username: (lang) => zod_1.z.string()
         .min(2, {
         message: getValidationMessages(lang, 102)
@@ -99,13 +124,4 @@ exports.generalValidationFields = {
         message: getValidationMessages(lang, 107)
     }),
     id: (lang) => zod_1.z.string().refine((data) => { return mongoose_1.default.Types.ObjectId.isValid(data); }, { message: getValidationMessages(lang, 110) }),
-    file: (lang) => zod_1.z.strictObject({
-        fieldname: zod_1.z.string(),
-        originalname: zod_1.z.string(),
-        encoding: zod_1.z.string(),
-        mimetype: zod_1.z.string(),
-        buffer: zod_1.z.instanceof(Buffer),
-        size: zod_1.z.number(),
-        path: zod_1.z.string(),
-    }),
 };

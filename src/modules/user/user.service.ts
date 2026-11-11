@@ -1,25 +1,42 @@
 import jwt from "jsonwebtoken";
 import { BadRequestException, ConflictException, NotFoundException } from "../../common/exception";
-import { FollowRepository, UserRepository } from "../../common/repository";
-import { createLoginCredentials, createRevokeToken, decryption, encryption, userBaseRevokeTokenKey, userRevokeTokenKey } from "../../common/security";
-import { cacheService, CacheService } from "../../common/service";
+import { followRepository, FollowRepository, userRepository, UserRepository } from "../../common/repository";
+import { CacheService, cacheService, cloudService, CloudService} from "../../common/service";
 import { ACCESS_TOKEN_EXPIRES_IN, REFRESH_TOKEN_EXPIRES_IN } from "../../config";
 import { IUser } from "../../common/interface";
 import mongoose, { HydratedDocument } from "mongoose";
-import { GenderEnum, LogoutEnum, RoleEnum } from "../../common/enum";
+import { GenderEnum, LogoutEnum } from "../../common/enum";
 import { IFollow } from "../../common/interface/follow.interface";
+import { decryption, encryption, JwtPayloadType, tokenService, TokenService } from "../../common/security";
+import { HUser } from "../../DB/model";
+import { toObjectId } from "../../common/utlis";
+import { IFile } from "../../common/types";
 
 
 class UserService {
-  private userRepository: UserRepository
-  private cacheService: CacheService
-  private followRepository: FollowRepository
+  private readonly userRepository: UserRepository
+  private readonly cacheService: CacheService
+  private readonly followRepository: FollowRepository
+  private readonly tokenService : TokenService
+  private readonly cloudService : CloudService
+
   constructor() {
     this.cacheService = cacheService
-    this.userRepository = new UserRepository()
-    this.followRepository = new FollowRepository()
+    this.userRepository = userRepository
+    this.followRepository = followRepository
+    this.tokenService = tokenService
+    this.cloudService = cloudService
+    
   }
 
+
+   async profileImage(file:IFile , user:HUser):Promise<string>{
+    const key = await this.cloudService.uploadAsset({
+      file,
+      folder:`User/${user._id.toString()}`
+    })
+    return key
+  }
 
 
 
@@ -61,7 +78,7 @@ async updateProfile(
 
 
 
-  async rotateToken(payload: jwt.JwtPayload, user: { _id: mongoose.Types.ObjectId, role: RoleEnum }, issuer: string): Promise<{
+  async rotateToken(payload: JwtPayloadType, user: HUser, issuer: string): Promise<{
     access_token: string;
     refresh_token: string;
   }> {
@@ -72,8 +89,8 @@ async updateProfile(
       throw new ConflictException("sorry we cannot create new login credintials while current access token still within valid time range")
     }
 
-    const data = await createLoginCredentials({ user, issuer })
-    await createRevokeToken({ payload })
+    const data = await this.tokenService.createLoginCredentials({ user, issuer })
+    await this.tokenService.createRevokeToken({ payload })
     return data
   }
 
@@ -82,22 +99,24 @@ async updateProfile(
     const consumedTime = (Math.ceil(Date.now() / 1000) - (payload.iat as number))
     const refreshExpiredIn = payload.iat as number + REFRESH_TOKEN_EXPIRES_IN
     const ttl = refreshExpiredIn - consumedTime
-    await cacheService.set({ key: userRevokeTokenKey({ userId: new mongoose.Types.ObjectId(payload.sub), jti: (payload.jti as string) }), value: payload.jti, ttl })
+    await this.cacheService.set({ key: this.tokenService.userRevokeTokenKey({ userId: new mongoose.Types.ObjectId(payload.sub), jti: (payload.jti as string) }), value: payload.jti, ttl })
     return;
   }
 
 
-  async logout(payload: jwt.JwtPayload, user: HydratedDocument<IUser>, { action = LogoutEnum.DEVICE }) {
+  async logout(payload: JwtPayloadType, user: HUser, { action = LogoutEnum.DEVICE }) {
 
     switch (action) {
       case LogoutEnum.ALL:
-        user.changeCredentialsTime = new Date() as unknown as string
+        user.changeCredentialsTime 
         await user.save()
-        await cacheService.del({ key: await cacheService.keys({ prefix: userBaseRevokeTokenKey({ userId: new mongoose.Types.ObjectId(payload.sub) }) }) })
+        await this.cacheService.del({ key: await this.cacheService.keys({ prefix: this.tokenService.userBaseRevokeTokenKey({ userId: toObjectId(payload.sub) }) }) })
         break;
 
       default:
-        await createRevokeToken({ payload })
+        await this.tokenService.createRevokeToken({
+          payload: payload as jwt.JwtPayload & { sub: string; aud: number[]; jti: string; iat: number }
+        })
         break;
     }
     return

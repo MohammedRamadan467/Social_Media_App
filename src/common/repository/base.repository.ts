@@ -1,6 +1,7 @@
 import mongoose, { AnyKeys, CreateOptions, DeleteResult, FlattenMaps, HydratedDocument, Model, MongooseUpdateQueryOptions, PopulateOptions, ProjectionType, QueryFilter, QueryOptions, QueryWithHelpers, UpdateQuery, UpdateWithAggregationPipeline, UpdateWriteOpResult } from "mongoose";
 import th from "zod/v4/locales/th.js";
 import { IPaginate } from "../interface";
+import { ProviderEnum } from "../enum";
 
 
 export abstract class DatabaseRepository<TRawDocType> {
@@ -318,6 +319,11 @@ id
 
   return await this.model.findByIdAndDelete(id)
  
+}
+
+
+async insertMany({ data }: { data: AnyKeys<TRawDocType>[]; }, p0: { firstName: string; lastName: string; email: string; password: string; provider: ProviderEnum; phone: string; }[]){
+  return await this.model.insertMany(data)
 }
 
 }

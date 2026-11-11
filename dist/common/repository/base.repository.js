@@ -102,5 +102,8 @@ class DatabaseRepository {
     async findByIdAndDelete({ id }) {
         return await this.model.findByIdAndDelete(id);
     }
+    async insertMany({ data }, p0) {
+        return await this.model.insertMany(data);
+    }
 }
 exports.DatabaseRepository = DatabaseRepository;

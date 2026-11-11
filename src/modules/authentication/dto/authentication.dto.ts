@@ -1,5 +1,6 @@
 import z from "zod";
 import { confirmEmail, login, requestForgotPasswordCode, resendConfirmEmail, signup, veriryForgotPassword } from "../authentication.validation";
+import { createPost } from "../../post/post.validation";
 // export interface ISignupDto{
 //     username:string;
 //     email:string;

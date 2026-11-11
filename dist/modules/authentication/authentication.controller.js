@@ -40,13 +40,14 @@ const express_1 = require("express");
 const authentication_service_1 = __importDefault(require("./authentication.service"));
 const middleware_1 = require("../../middleware");
 const validators = __importStar(require("./authentication.validation"));
+const utlis_1 = require("../../common/utlis");
 const router = (0, express_1.Router)({ strict: true, caseSensitive: true });
 router.post("/signup", (0, middleware_1.validation)(validators.signup), (0, middleware_1.responseFormatter)(async (req, res, next) => {
     const data = await authentication_service_1.default.signup(req.validate.body);
     return { status: 201, data };
 }));
 router.post("/signup-with-gmail", (0, middleware_1.responseFormatter)(async (req, res, next) => {
-    const { status, data } = await authentication_service_1.default.signupWithGmail(req.body, `${req.protocol}://${req.host}`);
+    const { status, data } = await authentication_service_1.default.signupWithGmail(req.body, (0, utlis_1.getIssuer)(req));
     return { status, data };
 }));
 router.patch("/confirm-email", (0, middleware_1.validation)(validators.confirmEmail), (0, middleware_1.responseFormatter)(async (req, res, next) => {
@@ -56,8 +57,8 @@ router.patch("/resend-confirm-email", (0, middleware_1.validation)(validators.re
     await authentication_service_1.default.resendConfirmEmail(req.body);
 }));
 router.post("/login", (0, middleware_1.validation)(validators.login), (0, middleware_1.responseFormatter)(async (req, res, next) => {
-    const data = await authentication_service_1.default.login(req.validate.body, `${req.protocol}://${req.host}`);
-    return { status: 200, data };
+    const data = await authentication_service_1.default.login(req.validate.body, (0, utlis_1.getIssuer)(req));
+    return { data, status: 200 };
 }));
 router.post("/request-forgot-password-code", (0, middleware_1.validation)(validators.requestForgotPasswordCode), (0, middleware_1.responseFormatter)(async (req, res, next) => {
     const data = await authentication_service_1.default.requestForgotPasswordCode(req.body);

@@ -6,6 +6,7 @@ import { REDIS_URI } from "../../config";
 
     private readonly client:RedisClientType
     constructor(){
+              
       this.client = createClient({url:REDIS_URI})
       this.connect()
     }

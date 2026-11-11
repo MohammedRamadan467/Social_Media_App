@@ -14,6 +14,9 @@ export const validation = (schema:ValidationSchemaType)=>{
         body:req.body,
         query:req.query,
         params:req.params,
+        files:req.files,
+        file:req.file
+
        }) 
        if(!validationResult.success) throw new BadRequestException("validation Error" , validationResult.error.issues)
         

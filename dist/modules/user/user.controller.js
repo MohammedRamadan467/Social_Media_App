@@ -42,16 +42,26 @@ const enum_1 = require("../../common/enum");
 const middleware_1 = require("../../middleware");
 const user_service_1 = __importDefault(require("./user.service"));
 const validators = __importStar(require("./user.validation"));
+const utlis_1 = require("../../common/utlis");
+const multer_1 = require("../../common/utlis/multer");
 const router = (0, express_1.Router)();
 router.get("/", (0, authentication_middleware_1.authentication)(), (0, middleware_1.responseFormatter)(async (req, res, next) => {
     const data = await user_service_1.default.profile(req.user);
     return { status: 200, data };
 }));
+router.patch("/profile-image", (0, authentication_middleware_1.authentication)(), (0, middleware_1.uploadMiddleware)({
+    multerMiddleware: (0, multer_1.localFielupload)({ storageApproach: enum_1.StorageApproachEnum.MEMORY }).single("attachment"),
+    customPath: "User",
+    validation: multer_1.fileValidation.image
+}), (0, middleware_1.responseFormatter)(async (req, res, next) => {
+    const key = await user_service_1.default.profileImage(req.file, req.user);
+    return { data: { key } };
+}));
 router.patch("/", (0, authentication_middleware_1.authentication)(), (0, authentication_middleware_1.authorization)(enum_1.RoleEnum.USER), (0, middleware_1.responseFormatter)(async (req, res, next) => {
     await user_service_1.default.updateProfile(req.body, req.user);
 }));
 router.post("/rotate-token", (0, authentication_middleware_1.authentication)(enum_1.tokenTypeEnum.REFRESH), (0, middleware_1.responseFormatter)(async (req, res, next) => {
-    const data = await user_service_1.default.rotateToken(req.payload, req.user, `${req.protocol}://${req.host}`);
+    const data = await user_service_1.default.rotateToken(req.payload, req.user, (0, utlis_1.getIssuer)(req));
     return { status: 200, data };
 }));
 router.post("/follow/:userId", (0, authentication_middleware_1.authentication)(enum_1.tokenTypeEnum.ACCESS), (0, middleware_1.validation)(validators.followUser), (0, middleware_1.responseFormatter)(async (req, res, next) => {

@@ -55,7 +55,13 @@ const userSchema = new mongoose_1.default.Schema({
     isPrivate: {
         type: Boolean,
         default: false
-    }
+    },
+    status: {
+        type: Number,
+        enum: enum_1.AccountStatusEnum,
+        default: enum_1.AccountStatusEnum.ACTIVE
+    },
+    changeStatusAt: Date
 }, {
     timestamps: true,
     toObject: { virtuals: true },
@@ -69,5 +75,39 @@ userSchema.virtual("username").set(function (value) {
     this.set({ firstName, lastName });
 }).get(function () {
     return `${this.firstName} ${this.lastName}`;
+});
+userSchema.pre('validate', function () {
+    console.log("Pre_VALIDATE");
+    if (this.provider == enum_1.ProviderEnum.GOOGLE && this.password) {
+        throw new Error("Google account cannot hold password");
+    }
+});
+userSchema.pre(["findOne", "find", "countDocuments"], function () {
+    const query = this.getFilter();
+    if (query.paranoid != false)
+        this.setQuery({ ...query, status: { $ne: enum_1.AccountStatusEnum.ARCHIVE } });
+});
+userSchema.pre(["updateOne", "updateMany", "findOneAndUpdate"], function () {
+    const query = this.getFilter();
+    const update = this.getUpdate();
+    if (update.status == enum_1.AccountStatusEnum.ACTIVE) {
+        this.setQuery({ ...query, status: { $eq: enum_1.AccountStatusEnum.ARCHIVE } });
+    }
+    else if (update.status == enum_1.AccountStatusEnum.ARCHIVE) {
+        this.setQuery({ ...query, status: { $ne: enum_1.AccountStatusEnum.ARCHIVE } });
+    }
+    if (!update.status && query.paranoid != false) {
+        this.setQuery({ ...query, status: { $ne: enum_1.AccountStatusEnum.ARCHIVE } });
+    }
+    this.setUpdate({
+        ...this.getUpdate(),
+        ...(update.status ? { changeStatusAt: new Date() } : {})
+    });
+});
+userSchema.pre(["deleteOne", "deleteMany", "findOneAndDelete"], function () {
+    const query = this.getFilter();
+    if (!query.force) {
+        this.setQuery({ ...query, status: { $eq: enum_1.AccountStatusEnum.ARCHIVE } });
+    }
 });
 exports.UserModel = mongoose_1.default.models.User || mongoose_1.default.model("User", userSchema);

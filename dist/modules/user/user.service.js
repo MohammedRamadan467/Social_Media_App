@@ -5,19 +5,31 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const exception_1 = require("../../common/exception");
 const repository_1 = require("../../common/repository");
-const security_1 = require("../../common/security");
 const service_1 = require("../../common/service");
 const config_1 = require("../../config");
 const mongoose_1 = __importDefault(require("mongoose"));
 const enum_1 = require("../../common/enum");
+const security_1 = require("../../common/security");
+const utlis_1 = require("../../common/utlis");
 class UserService {
     userRepository;
     cacheService;
     followRepository;
+    tokenService;
+    cloudService;
     constructor() {
         this.cacheService = service_1.cacheService;
-        this.userRepository = new repository_1.UserRepository();
-        this.followRepository = new repository_1.FollowRepository();
+        this.userRepository = repository_1.userRepository;
+        this.followRepository = repository_1.followRepository;
+        this.tokenService = security_1.tokenService;
+        this.cloudService = service_1.cloudService;
+    }
+    async profileImage(file, user) {
+        const key = await this.cloudService.uploadAsset({
+            file,
+            folder: `User/${user._id.toString()}`
+        });
+        return key;
     }
     async profile(user) {
         user.phone = await (0, security_1.decryption)(user.phone);
@@ -39,26 +51,28 @@ class UserService {
         if (currentTime < accessExpiresIn) {
             throw new exception_1.ConflictException("sorry we cannot create new login credintials while current access token still within valid time range");
         }
-        const data = await (0, security_1.createLoginCredentials)({ user, issuer });
-        await (0, security_1.createRevokeToken)({ payload });
+        const data = await this.tokenService.createLoginCredentials({ user, issuer });
+        await this.tokenService.createRevokeToken({ payload });
         return data;
     }
     async createRevokeToken({ payload }) {
         const consumedTime = (Math.ceil(Date.now() / 1000) - payload.iat);
         const refreshExpiredIn = payload.iat + config_1.REFRESH_TOKEN_EXPIRES_IN;
         const ttl = refreshExpiredIn - consumedTime;
-        await service_1.cacheService.set({ key: (0, security_1.userRevokeTokenKey)({ userId: new mongoose_1.default.Types.ObjectId(payload.sub), jti: payload.jti }), value: payload.jti, ttl });
+        await this.cacheService.set({ key: this.tokenService.userRevokeTokenKey({ userId: new mongoose_1.default.Types.ObjectId(payload.sub), jti: payload.jti }), value: payload.jti, ttl });
         return;
     }
     async logout(payload, user, { action = enum_1.LogoutEnum.DEVICE }) {
         switch (action) {
             case enum_1.LogoutEnum.ALL:
-                user.changeCredentialsTime = new Date();
+                user.changeCredentialsTime;
                 await user.save();
-                await service_1.cacheService.del({ key: await service_1.cacheService.keys({ prefix: (0, security_1.userBaseRevokeTokenKey)({ userId: new mongoose_1.default.Types.ObjectId(payload.sub) }) }) });
+                await this.cacheService.del({ key: await this.cacheService.keys({ prefix: this.tokenService.userBaseRevokeTokenKey({ userId: (0, utlis_1.toObjectId)(payload.sub) }) }) });
                 break;
             default:
-                await (0, security_1.createRevokeToken)({ payload });
+                await this.tokenService.createRevokeToken({
+                    payload: payload
+                });
                 break;
         }
         return;

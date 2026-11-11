@@ -32,3 +32,11 @@ export const TWITTER: string = process.env.TWITTER as string
 export const INSTAGRAM: string = process.env.INSTAGRAM as string
 
 export const ORIGINS: string[] = process.env.ORIGINS?.split(",") as string[]
+
+export const AWS_ACCESS_KEY_ID: string = process.env.AWS_ACCESS_KEY_ID as string
+export const AWS_SECRET_ACCESS_KEY: string = process.env.AWS_SECRET_ACCESS_KEY as string
+export const AWS_REGION: string = process.env.AWS_REGION as string
+export const AWS_BUCKET_NAME: string = process.env.AWS_BUCKET_NAME as string
+export const APPLICATION_NAME: string = process.env.APPLICATION_NAME as string
+ 
+ 

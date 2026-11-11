@@ -1,8 +1,9 @@
 import mongoose from "mongoose";
-import { GenderEnum, ProviderEnum, RoleEnum } from "../enum";
+import { AccountStatusEnum, GenderEnum, ProviderEnum, RoleEnum } from "../enum";
 
 export interface IUser{
-
+status:AccountStatusEnum;
+changeStatusAt?:Date;
 _id: mongoose.Types.ObjectId;
 firstName:string;
 lastName:string;
@@ -10,17 +11,17 @@ username?:string;
 email:string;
 password:string;
 phone?: string;
-DOB?: string;
+DOB?: Date;
 confirmEmail?: string;
 image?:string;
 coverImage?:[string];
 gender:GenderEnum;
 role:RoleEnum;
 provider:ProviderEnum;
-changeCredentialsTime?: string;
-twoStepVerification?:string;
-createdAt:string;
-updatedAt:string;
+changeCredentialsTime?: Date;
+twoStepVerification?:Date;
+createdAt:Date;
+updatedAt:Date;
 isPrivate?:boolean;
 
  

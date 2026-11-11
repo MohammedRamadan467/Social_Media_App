@@ -12,18 +12,21 @@ const config_1 = require("../../config");
 class AuthenticationService {
     userRepository;
     cacheService;
+    tokenService;
+    client;
     constructor() {
         this.cacheService = service_1.cacheService;
         this.userRepository = new repository_1.UserRepository();
+        this.tokenService = new security_1.TokenService();
+        this.client = new google_auth_library_1.OAuth2Client();
     }
-    client = new google_auth_library_1.OAuth2Client();
     async verifyGoogleAccount(idToken) {
         const ticket = await this.client.verifyIdToken({
             idToken,
             audience: config_1.WEB_CLIENT_IDS
         });
         const payload = ticket.getPayload();
-        if (!payload.email_verified)
+        if (!payload?.email_verified)
             throw new exception_1.BadRequestException("email not verified");
         return payload;
     }
@@ -36,7 +39,7 @@ class AuthenticationService {
             if (existAccount.provider != enum_1.ProviderEnum.GOOGLE) {
                 throw new exception_1.ConflictException("Invalid account provider");
             }
-            return { status: 201, data: await (0, security_1.createLoginCredentials)({ user: existAccount, issuer }) };
+            return { status: 201, data: await this.tokenService.createLoginCredentials({ user: existAccount, issuer }) };
         }
         const user = await this.userRepository.createOne({
             data: {
@@ -47,7 +50,7 @@ class AuthenticationService {
                 image: picture
             }
         });
-        return { status: 200, data: await (0, security_1.createLoginCredentials)({ user, issuer }) };
+        return { status: 200, data: await this.tokenService.createLoginCredentials({ user, issuer }) };
     }
     async sendEmailOtp({ email, subject, title, expiresIn = 120, maxTrials = 3, blockInSeconds = 300 }) {
         const existOTP_TTL = await this.cacheService.ttl({ key: (0, email_1.userEmailKey)({ email, subject }) });
@@ -131,7 +134,7 @@ class AuthenticationService {
             await this.sendEmailOtp({ email, subject: enum_1.EmailSubjectEnum.LOGIN });
             throw new exception_1.BadRequestException("Two step verification required");
         }
-        return await (0, security_1.createLoginCredentials)({ user: account, issuer });
+        return await this.tokenService.createLoginCredentials({ user: account, issuer });
     }
     async requestForgotPasswordCode({ email }) {
         const account = await this.userRepository.findOne({
@@ -159,11 +162,11 @@ class AuthenticationService {
     async resetForgotPassword({ email, otp, password }) {
         const account = await this.verifyForgotPasswordCode({ email, otp });
         account.password = await (0, security_1.hash)(password);
-        account.changeCredentialsTime = new Date();
+        account.changeCredentialsTime;
         await account.save();
         const result = await Promise.all([
             this.cacheService.keys({ prefix: (0, email_1.userEmailKey)({ email, subject: enum_1.EmailSubjectEnum.FORGOT_PASSWORD }) }),
-            this.cacheService.keys({ prefix: (0, security_1.userBaseRevokeTokenKey)({ userId: account._id }) })
+            this.cacheService.keys({ prefix: this.tokenService.userBaseRevokeTokenKey({ userId: account._id }) })
         ]);
         await this.cacheService.del({
             key: [...result[0], ...result[1]]

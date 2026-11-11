@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ORIGINS = exports.INSTAGRAM = exports.TWITTER = exports.FACEBOOK = exports.APP_PASSWORD = exports.APP_EMAIL = exports.REDIS_URI = exports.WEB_CLIENT_IDS = exports.REFRESH_TOKEN_EXPIRES_IN = exports.REFRESH_ADMIN_TOKEN_SIGNUTURE = exports.REFRESH_USER_TOKEN_SIGNUTURE = exports.ACCESS_TOKEN_EXPIRES_IN = exports.ACCESS_ADMIN_TOKEN_SIGNUTURE = exports.ACCESS_USER_TOKEN_SIGNUTURE = exports.DB_URI = exports.IV_LENGTH = exports.ENC_KEY = exports.PORT = exports.NODE_ENV = void 0;
+exports.APPLICATION_NAME = exports.AWS_BUCKET_NAME = exports.AWS_REGION = exports.AWS_SECRET_ACCESS_KEY = exports.AWS_ACCESS_KEY_ID = exports.ORIGINS = exports.INSTAGRAM = exports.TWITTER = exports.FACEBOOK = exports.APP_PASSWORD = exports.APP_EMAIL = exports.REDIS_URI = exports.WEB_CLIENT_IDS = exports.REFRESH_TOKEN_EXPIRES_IN = exports.REFRESH_ADMIN_TOKEN_SIGNUTURE = exports.REFRESH_USER_TOKEN_SIGNUTURE = exports.ACCESS_TOKEN_EXPIRES_IN = exports.ACCESS_ADMIN_TOKEN_SIGNUTURE = exports.ACCESS_USER_TOKEN_SIGNUTURE = exports.DB_URI = exports.IV_LENGTH = exports.ENC_KEY = exports.PORT = exports.NODE_ENV = void 0;
 const node_path_1 = require("node:path");
 const dotenv_1 = require("dotenv");
 exports.NODE_ENV = process.env.NODE_ENV ?? 'development';
@@ -23,3 +23,8 @@ exports.FACEBOOK = process.env.FACEBOOK;
 exports.TWITTER = process.env.TWITTER;
 exports.INSTAGRAM = process.env.INSTAGRAM;
 exports.ORIGINS = process.env.ORIGINS?.split(",");
+exports.AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID;
+exports.AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY;
+exports.AWS_REGION = process.env.AWS_REGION;
+exports.AWS_BUCKET_NAME = process.env.AWS_BUCKET_NAME;
+exports.APPLICATION_NAME = process.env.APPLICATION_NAME;
