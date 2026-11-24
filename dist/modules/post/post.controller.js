@@ -42,47 +42,19 @@ const validators = __importStar(require("./post.validation"));
 const middleware_1 = require("../../middleware");
 const post_service_1 = __importDefault(require("./post.service"));
 const multer_1 = require("../../common/utlis/multer");
-const enum_1 = require("../../common/enum");
 const router = (0, express_1.Router)();
 router.post("/", (0, authentication_middleware_1.authentication)(), (0, middleware_1.uploadMiddleware)({
-    multerMiddleware: (0, multer_1.localFielupload)({
-        storageApproach: enum_1.StorageApproachEnum.MEMORY
-    }).array("attachment", 3),
-    customPath: "Post",
+    multerMiddleware: (0, multer_1.localFielupload)({}).array("attachment", 3),
     validation: multer_1.fileValidation.image
 }), (0, middleware_1.validation)(validators.createPost), (0, middleware_1.responseFormatter)(async (req, res, next) => {
-    const data = await post_service_1.default.createPost({
-        ...req.validate.body,
-        attachments: Array.isArray(req.files)
-            ? req.files.map(file => file.path)
-            : []
-    }, req.user);
-    return { status: 201, data };
-}));
-router.get("/", (0, authentication_middleware_1.authentication)(), (0, middleware_1.responseFormatter)(async (req, res, next) => {
-    const data = await post_service_1.default.getAllPost(req.user);
-    return { status: 200, data };
-}));
-router.get("/:postId", (0, authentication_middleware_1.authentication)(), (0, middleware_1.validation)(validators.GetPostById), (0, middleware_1.responseFormatter)(async (req, res, next) => {
-    const data = await post_service_1.default.getPost(req.validate.params.postId, req.user);
-    return { status: 200, data };
+    const post = await post_service_1.default.create(req.validate.body, req.user, req.files);
+    return { data: post };
 }));
 router.patch("/:postId", (0, authentication_middleware_1.authentication)(), (0, middleware_1.uploadMiddleware)({
-    multerMiddleware: (0, multer_1.localFielupload)({
-        storageApproach: enum_1.StorageApproachEnum.MEMORY
-    }).array("attachment", 3),
-    customPath: "Post",
-    validation: multer_1.fileValidation.image,
-    isRequired: false
-}), (0, middleware_1.validation)(validators.UpdatePost), (0, middleware_1.responseFormatter)(async (req, res, next) => {
-    const data = await post_service_1.default.updatePost(req.validate.params.postId, {
-        ...req.validate.body,
-        attachments: Array.isArray(req.files) ? req.files.map(file => file.path) : []
-    }, req.user);
-    return { status: 200, data };
-}));
-router.delete("/:postId", (0, authentication_middleware_1.authentication)(), (0, middleware_1.validation)(validators.GetPostById), (0, middleware_1.responseFormatter)(async (req, res, next) => {
-    const data = await post_service_1.default.deletePost(req.validate.params.postId, req.user);
-    return { status: 200, data };
+    multerMiddleware: (0, multer_1.localFielupload)({}).array("attachment", 3),
+    validation: multer_1.fileValidation.image
+}), (0, middleware_1.validation)(validators.updatePost), (0, middleware_1.responseFormatter)(async (req, res, next) => {
+    const post = await post_service_1.default.update(req.params, req.validate.body, req.user, req.files);
+    return { data: post };
 }));
 exports.default = router;

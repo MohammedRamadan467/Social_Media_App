@@ -104,6 +104,22 @@ async incrBy ({key , value = 1}:{key:string , value?:number}){
    return await this.client.incrBy(key , value)
 }
 
+async sAdd({ key, value }: { key: string, value: string }) {
+    return await this.client.sAdd(key, value);
+}
+
+async sRem({ key, value }: { key: string, value: string }) {
+    return await this.client.sRem(key, value);
+}
+
+async sMembers({ key }: { key: string }) {
+    return await this.client.sMembers(key);
+}
+
+async sCard({ key }: { key: string }) {
+    return await this.client.sCard(key);
+}
+
 }
 
 

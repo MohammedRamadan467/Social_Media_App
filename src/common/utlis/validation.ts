@@ -133,14 +133,14 @@ export const generalValidationFields = {
             optional(),
 
 
-    file: (lang: LanguageEnum)=> z.strictObject({
+    file: (lang: LanguageEnum)=> z.object({
             fieldname: z.string(),
             originalname: z.string(),
             encoding: z.string(),
             mimetype: z.string(),
             buffer: z.instanceof(Buffer),
             size: z.number(),
-            path: z.string(),
+            path: z.string().optional(),
         }),
 
     username: (lang: LanguageEnum) =>

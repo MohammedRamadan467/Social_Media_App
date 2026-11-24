@@ -1,5 +1,5 @@
 import z from "zod";
-import { createPost } from "../post.validation";
-import { IUser } from "../../../common/interface";
+import { createPost, updatePost } from "../post.validation";
 
-export type CreatePostDto = z.infer<ReturnType<typeof createPost>>['body'] & {attachments?:string[]}
+export type CreatePostDto = z.infer<ReturnType<typeof createPost>>
+export type updatePostDto = z.infer<ReturnType<typeof updatePost>>

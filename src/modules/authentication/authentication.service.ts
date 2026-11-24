@@ -3,24 +3,29 @@ import { ConfirmEmailDto, LoginDto, RequestForgotPasswordDto, ResendConfirmEmail
 import { IResponse, IUser } from "../../common/interface";
 import { UserRepository } from "../../common/repository";
 import { compare, encryption, hash, TokenService } from "../../common/security";
-import { cacheService, CacheService } from "../../common/service";
+import { cacheService, CacheService, notificationService, NotificationService } from "../../common/service";
 import { EmailSubjectEnum, ProviderEnum } from "../../common/enum";
 import { emailEvent, userEmailKey, userEmaiTrialsKey } from "../../common/utlis/email";
 import { createOtp } from "../../common/utlis/otp";
 import { OAuth2Client, TokenPayload } from "google-auth-library";
 import { WEB_CLIENT_IDS } from "../../config";
 import { ILoginResponse, ISignupWithGmailResponse } from "./entities/authenticatio.entity";
+import { notificationRepository, NotificationRepository } from "../../common/repository/notification.repository";
 
 class AuthenticationService {
     private userRepository: UserRepository
     private cacheService: CacheService
     private tokenService : TokenService
     private client : OAuth2Client;
+    private notificationService : NotificationService;
+    private notificationRepository : NotificationRepository;
     constructor() {
         this.cacheService = cacheService
         this.userRepository = new UserRepository()
         this.tokenService = new TokenService()
         this.client = new OAuth2Client()
+        this.notificationService = notificationService
+        this.notificationRepository = notificationRepository
     }
 
 
@@ -190,7 +195,7 @@ return  {status:200  , data:await this.tokenService.createLoginCredentials({user
     }
 
 
-    async login({ email, password }: LoginDto, issuer: string):Promise<ILoginResponse> {
+    async login({ email, password , FCM}: LoginDto, issuer: string):Promise<ILoginResponse> {
 
 
         const account = await this.userRepository.findOne({
@@ -200,6 +205,28 @@ return  {status:200  , data:await this.tokenService.createLoginCredentials({user
         const matchPassword = await compare(password, account.password)         
 
         if (!matchPassword) throw new NotFoundException("Invalid password")
+
+        await this.notificationRepository.createOne({
+            data:{
+                recipient_id:account._id,
+                type:"NEW_LOGIN",
+                
+
+            }
+        })
+
+        await this.notificationService.sendNotifications({
+            tokens: await this.notificationService.getFCMs({userId : account._id}),
+            notification:{
+                title:"login session",
+                body:"new login"
+            }
+        })
+
+        
+        if(FCM){
+            await this.notificationService.addFCM({userId:account._id , FCM})
+        }
 
         if (account.twoStepVerification) {
 

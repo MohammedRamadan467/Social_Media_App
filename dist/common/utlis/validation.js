@@ -91,14 +91,14 @@ exports.generalValidationFields = {
         message: getValidationMessages(lang, 112)
     }).
         optional(),
-    file: (lang) => zod_1.z.strictObject({
+    file: (lang) => zod_1.z.object({
         fieldname: zod_1.z.string(),
         originalname: zod_1.z.string(),
         encoding: zod_1.z.string(),
         mimetype: zod_1.z.string(),
         buffer: zod_1.z.instanceof(Buffer),
         size: zod_1.z.number(),
-        path: zod_1.z.string(),
+        path: zod_1.z.string().optional(),
     }),
     username: (lang) => zod_1.z.string()
         .min(2, {

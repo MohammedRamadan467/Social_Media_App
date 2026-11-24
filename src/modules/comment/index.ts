@@ -1,1 +1,1 @@
-export {default as commentController} from './comment.controller';
+// export {default as commentController} from './comment.controller';

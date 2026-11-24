@@ -38,5 +38,6 @@ export const AWS_SECRET_ACCESS_KEY: string = process.env.AWS_SECRET_ACCESS_KEY a
 export const AWS_REGION: string = process.env.AWS_REGION as string
 export const AWS_BUCKET_NAME: string = process.env.AWS_BUCKET_NAME as string
 export const APPLICATION_NAME: string = process.env.APPLICATION_NAME as string
- 
+export const AWS_EXPIRES_IN: number = parseInt(process.env.AWS_EXPIRES_IN ?? "1800") as number
+
  

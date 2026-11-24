@@ -2,71 +2,112 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const exception_1 = require("../../common/exception");
 const repository_1 = require("../../common/repository");
+const friendRequest_repository_1 = require("../../common/repository/friendRequest.repository");
 const post_repository_1 = require("../../common/repository/post.repository");
+const service_1 = require("../../common/service");
 const utlis_1 = require("../../common/utlis");
 class PostService {
+    cloudService;
     postRepository;
     userRepository;
+    friendRequestRepository;
     constructor() {
         this.postRepository = post_repository_1.postRepository;
         this.userRepository = repository_1.userRepository;
+        this.cloudService = service_1.cloudService;
+        this.friendRequestRepository = friendRequest_repository_1.friendRequestRepository;
     }
-    async createPost({ content, attachments }, user) {
+    async create({ allowShare, privacy, content, mentions }, user, files = []) {
+        const folderId = (0, utlis_1.createOtp)();
+        let attachments = [];
+        if (mentions?.length && (await this.userRepository.find({ filter: { _id: { $in: mentions } } })).length != mentions?.length) {
+            throw new exception_1.NotFoundException("Some of mentioned account not exist");
+        }
+        if (files?.length) {
+            attachments = await this.cloudService.uploadAssets({ files, path: `Post/${folderId}` });
+        }
         const post = await this.postRepository.createOne({
             data: {
+                folderId,
                 content,
                 attachments,
-                userId: user._id
+                allowShare,
+                createdBy: user._id,
+                mentions,
+                privacy
             }
         });
         return post;
     }
-    async getAllPost(user) {
-        const posts = await this.postRepository.find({
-            filter: {
-                userId: user._id
-            }
-        });
-        return posts;
-    }
-    async getPost(postId, user) {
-        const post = await this.postRepository.findById({
-            id: (0, utlis_1.toObjectId)(postId)
-        });
-        if (!post)
-            throw new exception_1.NotFoundException("post not found");
-        return post;
-    }
-    async updatePost(postId, data, user) {
-        const postExists = await this.postRepository.findById({ id: (0, utlis_1.toObjectId)(postId) });
-        if (!postExists) {
-            throw new exception_1.NotFoundException("Post not found");
+    async update({ postId }, { removeAttachments = [], removeMentions = [], allowShare, privacy, content, mentions = [] }, user, files = []) {
+        if (mentions?.length && (await this.userRepository.find({ filter: { _id: { $in: mentions } } })).length != mentions?.length) {
+            throw new exception_1.NotFoundException("Some of mentioned account not exist");
         }
-        if (postExists.userId.toString() !== user._id.toString()) {
-            throw new exception_1.ForbiddenException("You are not allowed to update this post");
+        const post = await this.postRepository.findOne({
+            filter: { _id: postId, createdBy: user._id }
+        });
+        if (!post) {
+            throw new exception_1.NotFoundException("Invalid postId");
         }
-        const post = await this.postRepository.updateOne({
+        removeAttachments = removeAttachments.filter(ele => post.attachments.includes(ele));
+        const postAttachmentsLength = post.attachments.length + files.length - removeAttachments.length;
+        if (postAttachmentsLength > 3) {
+            throw new exception_1.BadRequestException("post connot hold more than 3 files");
+        }
+        const postContent = content ?? post.content;
+        if (!postContent && postAttachmentsLength < 1) {
+            throw new exception_1.BadRequestException("post cannot be empty");
+        }
+        let newAttachments = [];
+        if (files.length) {
+            newAttachments = await this.cloudService.uploadAssets({ files, path: `Post/${post.folderId}` });
+        }
+        const uPost = await this.postRepository.findOneAndUpdate({
             filter: {
-                _id: (0, utlis_1.toObjectId)(postId)
+                _id: postId, createdBy: user._id
             },
-            update: data
+            update: [
+                {
+                    $set: {
+                        content: postContent,
+                        allowShare: allowShare ?? post.allowShare,
+                        privacy: privacy ?? post.privacy,
+                        mentions: {
+                            $setUnion: [
+                                {
+                                    $setDifference: [
+                                        "$mentions",
+                                        removeMentions.map(ele => (0, utlis_1.toObjectId)(ele))
+                                    ]
+                                },
+                                mentions.map(ele => (0, utlis_1.toObjectId)(ele))
+                            ]
+                        },
+                        attachments: {
+                            $setUnion: [
+                                {
+                                    $setDifference: [
+                                        "$attachments",
+                                        removeAttachments
+                                    ]
+                                },
+                                newAttachments
+                            ]
+                        }
+                    }
+                }
+            ]
         });
-        return post;
-    }
-    async deletePost(postId, user) {
-        const postExists = await this.postRepository.findById({ id: (0, utlis_1.toObjectId)(postId) });
-        if (!postExists) {
-            throw new exception_1.NotFoundException("Post not found");
-        }
-        if (postExists.userId.toString() !== user._id.toString()) {
-            throw new exception_1.ForbiddenException("You are not allowed to delete this post");
-        }
-        const post = await this.postRepository.deleteOne({
-            filter: {
-                _id: (0, utlis_1.toObjectId)(postId)
+        if (!uPost) {
+            if (newAttachments?.length) {
+                await this.cloudService.deleteAssets({ Keys: newAttachments });
             }
-        });
-        return post;
+            if (removeAttachments?.length) {
+                await this.cloudService.deleteAssets({ Keys: newAttachments });
+            }
+            throw new exception_1.NotFoundException("Invalid post");
+        }
+        return uPost;
     }
 }
 exports.default = new PostService();

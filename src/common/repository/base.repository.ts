@@ -253,7 +253,13 @@ options
   options?: QueryOptions<TRawDocType> | null
 }):Promise<HydratedDocument<TRawDocType> | null>{
 
-  return await this.model.findOneAndUpdate(filter , update , {returnDocument:'after' , ...options})
+  if(Array.isArray(update)){
+  update.push({$set: {__v: {$add: ["$__v" , 1]}}})
+  return await this.model.findOneAndUpdate(filter , update , {returnDocument:'after' , ...options , updatePipeline:true})
+
+  }
+
+  return await this.model.findOneAndUpdate(filter ,{ ...update , $inc:{__v: 1}} , {returnDocument:'after' , ...options})
  
 }
 

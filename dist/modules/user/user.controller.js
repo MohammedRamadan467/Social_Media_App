@@ -50,12 +50,20 @@ router.get("/", (0, authentication_middleware_1.authentication)(), (0, middlewar
     return { status: 200, data };
 }));
 router.patch("/profile-image", (0, authentication_middleware_1.authentication)(), (0, middleware_1.uploadMiddleware)({
-    multerMiddleware: (0, multer_1.localFielupload)({ storageApproach: enum_1.StorageApproachEnum.MEMORY }).single("attachment"),
+    multerMiddleware: (0, multer_1.localFielupload)({}).single("attachment"),
     customPath: "User",
     validation: multer_1.fileValidation.image
 }), (0, middleware_1.responseFormatter)(async (req, res, next) => {
-    const key = await user_service_1.default.profileImage(req.file, req.user);
-    return { data: { key } };
+    const account = await user_service_1.default.profileImage(req.file, req.user);
+    return { data: account };
+}));
+router.patch("/profile-cover-image", (0, authentication_middleware_1.authentication)(), (0, middleware_1.uploadMiddleware)({
+    multerMiddleware: (0, multer_1.localFielupload)({}).array("attachments", 3),
+    customPath: "User",
+    validation: multer_1.fileValidation.image
+}), (0, middleware_1.responseFormatter)(async (req, res, next) => {
+    const account = await user_service_1.default.profileCoverImages(req.files, req.user);
+    return { data: account };
 }));
 router.patch("/", (0, authentication_middleware_1.authentication)(), (0, authentication_middleware_1.authorization)(enum_1.RoleEnum.USER), (0, middleware_1.responseFormatter)(async (req, res, next) => {
     await user_service_1.default.updateProfile(req.body, req.user);
@@ -95,5 +103,25 @@ router.post("/logout", (0, authentication_middleware_1.authentication)(), (0, mi
 router.delete("/deleteAccount", (0, authentication_middleware_1.authentication)(enum_1.tokenTypeEnum.ACCESS), (0, middleware_1.responseFormatter)(async (req, res, next) => {
     const data = await user_service_1.default.deleteAccount(req.user);
     return { status: 200, data };
+}));
+router.post("/send-friend-request", (0, authentication_middleware_1.authentication)(), (0, middleware_1.validation)(validators.sendFriendRequest), (0, middleware_1.responseFormatter)(async (req, res, next) => {
+    const request = await user_service_1.default.sendFriendRequest(req.body, req.user);
+    return { status: 200, data: request };
+}));
+router.patch("/accept-friend-request/:friendRequestId", (0, authentication_middleware_1.authentication)(), (0, middleware_1.validation)(validators.acceptFriendRequest), (0, middleware_1.responseFormatter)(async (req, res, next) => {
+    const request = await user_service_1.default.acceptFriendRequest(req.params, req.user);
+    return { status: 200, data: request };
+}));
+router.patch("/cancel-friend-request/:friendRequestId", (0, authentication_middleware_1.authentication)(), (0, middleware_1.validation)(validators.acceptFriendRequest), (0, middleware_1.responseFormatter)(async (req, res, next) => {
+    const request = await user_service_1.default.cancelFriendRequest(req.params, req.user);
+    return { status: 200, data: request };
+}));
+router.patch("/un-friend/:friendId", (0, authentication_middleware_1.authentication)(), (0, middleware_1.validation)(validators.unFriend), (0, middleware_1.responseFormatter)(async (req, res, next) => {
+    const request = await user_service_1.default.unFriend(req.params, req.user);
+    return { status: 200, data: request };
+}));
+router.patch("/block-friend/:friendId", (0, authentication_middleware_1.authentication)(), (0, middleware_1.validation)(validators.blockFriend), (0, middleware_1.responseFormatter)(async (req, res, next) => {
+    const request = await user_service_1.default.blockFriend(req.params, req.user);
+    return { status: 200, data: request };
 }));
 exports.default = router;

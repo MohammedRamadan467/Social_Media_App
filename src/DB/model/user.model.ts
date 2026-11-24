@@ -1,9 +1,6 @@
 import mongoose, { HydratedDocument } from "mongoose";
 import { AccountStatusEnum, GenderEnum, ProviderEnum, RoleEnum } from "../../common/enum";
 import { IUser } from "../../common/interface";
-import { encryption, hash } from "../../common/security";
-import { sendEmail } from "../../common/utlis/email";
-import { APP_EMAIL } from "../../config";
 
 const userSchema= new mongoose.Schema<IUser>(
 {
@@ -37,6 +34,7 @@ DOB: Date,
 confirmEmail: Date,
 image:String,
 coverImage:[String],
+friends:[{type:mongoose.Types.ObjectId , ref:'User'}],
 gender:{
     type:Number,
     enum:GenderEnum,

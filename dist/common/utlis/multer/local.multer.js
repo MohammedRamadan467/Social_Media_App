@@ -38,13 +38,9 @@ const proccessFile = async ({ customPath = "general", file, validation }) => {
         throw new exception_1.BadRequestException("Invalid file formats");
     }
     else {
-        await (0, promises_1.mkdir)((0, node_path_1.resolve)(`./assets/${customPath}`), { recursive: true });
-        const uniqueFilepath = `assets/${customPath}/${(0, node_crypto_1.randomUUID)()}.${result.ext}`;
-        await (0, promises_1.writeFile)((0, node_path_1.resolve)(`./${uniqueFilepath}`), file.buffer);
         if (file.path) {
             await (0, promises_1.unlink)(file.path);
         }
-        file.path = uniqueFilepath;
         return file;
     }
 };

@@ -35,6 +35,7 @@ const userSchema = new mongoose_1.default.Schema({
     confirmEmail: Date,
     image: String,
     coverImage: [String],
+    friends: [{ type: mongoose_1.default.Types.ObjectId, ref: 'User' }],
     gender: {
         type: Number,
         enum: enum_1.GenderEnum,

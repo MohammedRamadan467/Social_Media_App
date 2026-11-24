@@ -5,7 +5,8 @@ import { generalValidationFields } from "../../common/utlis/validation.js";
 export const loginSchema = (lang:LanguageEnum)=>{
     return z.strictObject({
     email:generalValidationFields.email(lang),
-    password:generalValidationFields.password(lang)
+    password:generalValidationFields.password(lang),
+    FCM:z.string().optional()
 })
 }
 

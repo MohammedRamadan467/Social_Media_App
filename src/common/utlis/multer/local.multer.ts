@@ -54,13 +54,13 @@ export const proccessFile = async ({
            throw new BadRequestException("Invalid file formats")            
         }else{
 
-            await mkdir(resolve(`./assets/${customPath}`) , {recursive : true})
-           const uniqueFilepath = `assets/${customPath}/${randomUUID()}.${result.ext}`
-           await writeFile(resolve(`./${uniqueFilepath}`), file.buffer)
+          //   await mkdir(resolve(`./assets/${customPath}`) , {recursive : true})
+          //  const uniqueFilepath = `assets/${customPath}/${randomUUID()}.${result.ext}`
+          //  await writeFile(resolve(`./${uniqueFilepath}`), file.buffer)
            if (file.path) {
               await unlink(file.path)
            }
-           file.path = uniqueFilepath
+          //  file.path = uniqueFilepath
            return file
         }
 

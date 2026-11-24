@@ -9,16 +9,21 @@ const email_1 = require("../../common/utlis/email");
 const otp_1 = require("../../common/utlis/otp");
 const google_auth_library_1 = require("google-auth-library");
 const config_1 = require("../../config");
+const notification_repository_1 = require("../../common/repository/notification.repository");
 class AuthenticationService {
     userRepository;
     cacheService;
     tokenService;
     client;
+    notificationService;
+    notificationRepository;
     constructor() {
         this.cacheService = service_1.cacheService;
         this.userRepository = new repository_1.UserRepository();
         this.tokenService = new security_1.TokenService();
         this.client = new google_auth_library_1.OAuth2Client();
+        this.notificationService = service_1.notificationService;
+        this.notificationRepository = notification_repository_1.notificationRepository;
     }
     async verifyGoogleAccount(idToken) {
         const ticket = await this.client.verifyIdToken({
@@ -121,7 +126,7 @@ class AuthenticationService {
         await this.cacheService.del({ key: await this.cacheService.keys({ prefix: (0, email_1.userEmailKey)({ email, subject: enum_1.EmailSubjectEnum.CONFIRM_EMAIL }) }) });
         return;
     }
-    async login({ email, password }, issuer) {
+    async login({ email, password, FCM }, issuer) {
         const account = await this.userRepository.findOne({
             filter: { email, provider: enum_1.ProviderEnum.SYSTEM, confirmEmail: { $exists: true } }
         });
@@ -130,6 +135,22 @@ class AuthenticationService {
         const matchPassword = await (0, security_1.compare)(password, account.password);
         if (!matchPassword)
             throw new exception_1.NotFoundException("Invalid password");
+        await this.notificationRepository.createOne({
+            data: {
+                recipient_id: account._id,
+                type: "NEW_LOGIN",
+            }
+        });
+        await this.notificationService.sendNotifications({
+            tokens: await this.notificationService.getFCMs({ userId: account._id }),
+            notification: {
+                title: "login session",
+                body: "new login"
+            }
+        });
+        if (FCM) {
+            await this.notificationService.addFCM({ userId: account._id, FCM });
+        }
         if (account.twoStepVerification) {
             await this.sendEmailOtp({ email, subject: enum_1.EmailSubjectEnum.LOGIN });
             throw new exception_1.BadRequestException("Two step verification required");

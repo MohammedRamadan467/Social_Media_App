@@ -11,10 +11,13 @@ const mongoose_1 = __importDefault(require("mongoose"));
 const enum_1 = require("../../common/enum");
 const security_1 = require("../../common/security");
 const utlis_1 = require("../../common/utlis");
+const friendRequest_repository_1 = require("../../common/repository/friendRequest.repository");
+const friendRequest_enum_1 = require("../../common/enum/friendRequest.enum");
 class UserService {
     userRepository;
     cacheService;
     followRepository;
+    friendRequestRepository;
     tokenService;
     cloudService;
     constructor() {
@@ -23,13 +26,26 @@ class UserService {
         this.followRepository = repository_1.followRepository;
         this.tokenService = security_1.tokenService;
         this.cloudService = service_1.cloudService;
+        this.friendRequestRepository = friendRequest_repository_1.friendRequestRepository;
     }
     async profileImage(file, user) {
-        const key = await this.cloudService.uploadAsset({
-            file,
-            folder: `User/${user._id.toString()}`
-        });
-        return key;
+        const oldImage = user.image;
+        const { Key } = await this.cloudService.uploadLargeAsset({ file, path: `User/${user._id.toString()}/profile` });
+        user.image = Key;
+        await user.save();
+        if (oldImage?.length) {
+            await this.cloudService.deleteAsset({ Key: oldImage });
+        }
+        return user.toJSON();
+    }
+    async profileCoverImages(files, user) {
+        const oldCover = user.coverImage || [];
+        user.coverImage = await this.cloudService.uploadAssets({ files, path: `User/${user._id.toString()}/profile/cover` });
+        await user.save();
+        if (oldCover?.length) {
+            await this.cloudService.deleteAssets({ Keys: oldCover });
+        }
+        return user.toJSON();
     }
     async profile(user) {
         user.phone = await (0, security_1.decryption)(user.phone);
@@ -194,7 +210,134 @@ class UserService {
         await this.userRepository.deleteOne({
             filter: { _id: user._id }
         });
+        await this.cloudService.deleteFolderByPrefix({ Prefix: `User/${user._id.toString()}` });
         return { message: "Account deleted successfully" };
+    }
+    async sendFriendRequest({ receiverId, note }, user) {
+        const receiver = await this.userRepository.findById({ id: (0, utlis_1.toObjectId)(receiverId) });
+        if (!receiver)
+            throw new exception_1.NotFoundException("Invalid receiver account");
+        if (user._id.toString() === receiver._id.toString()) {
+            throw new exception_1.ConflictException("You cannot send a friend request to yourself");
+        }
+        const checkResquestDuplicate = await this.friendRequestRepository.findOne({
+            filter: {
+                senderId: { $in: [user._id, receiverId] },
+                receiverId: { $in: [user._id, receiverId] }
+            }
+        });
+        if (checkResquestDuplicate)
+            throw new exception_1.ConflictException("Request already exist");
+        const request = await this.friendRequestRepository.create({
+            data: {
+                senderId: user._id,
+                receiverId: receiver._id,
+                note
+            }
+        });
+        return request.toJSON();
+    }
+    async acceptFriendRequest({ friendRequestId }, user) {
+        const request = await this.friendRequestRepository.findOneAndUpdate({
+            filter: {
+                _id: friendRequestId,
+                status: friendRequest_enum_1.FriendRequestEnum.PENDING,
+                receiverId: user._id
+            },
+            update: {
+                status: friendRequest_enum_1.FriendRequestEnum.ACCEPTED
+            }
+        });
+        if (!request)
+            throw new exception_1.NotFoundException("Invalid request");
+        await Promise.all([
+            this.userRepository.updateOne({
+                filter: { _id: request.senderId },
+                update: {
+                    $addToSet: { friends: request.receiverId }
+                }
+            }),
+            this.userRepository.updateOne({
+                filter: { _id: request.receiverId },
+                update: {
+                    $addToSet: { friends: request.senderId }
+                }
+            })
+        ]);
+        return request.toJSON();
+    }
+    async cancelFriendRequest({ friendRequestId }, user) {
+        const request = await this.friendRequestRepository.findOneAndDelete({
+            filter: {
+                _id: friendRequestId,
+                status: friendRequest_enum_1.FriendRequestEnum.PENDING,
+                $or: [{ senderId: user._id }, { receiverId: user._id }]
+            }
+        });
+        if (!request)
+            throw new exception_1.NotFoundException("Invalid request");
+        return request.toJSON();
+    }
+    async unFriend({ friendId }, user) {
+        const friend = await this.userRepository.findById({
+            id: (0, utlis_1.toObjectId)(friendId)
+        });
+        if (!friend)
+            throw new exception_1.NotFoundException("Friend account not found");
+        if (user._id.equals(friend._id))
+            throw new exception_1.BadRequestException("You cannot unfriend yourself");
+        const isFriend = await this.userRepository.findOne({
+            filter: {
+                _id: user._id,
+                friends: friend._id
+            }
+        });
+        if (!isFriend)
+            throw new exception_1.BadRequestException("This user is not your friend");
+        await Promise.all([
+            this.userRepository.updateOne({
+                filter: { _id: user._id },
+                update: {
+                    $pull: { friends: friend._id }
+                }
+            }),
+            this.userRepository.updateOne({
+                filter: { _id: friend._id },
+                update: {
+                    $pull: { friends: user._id }
+                }
+            })
+        ]);
+    }
+    async blockFriend({ friendId }, user) {
+        const friend = await this.userRepository.findById({
+            id: (0, utlis_1.toObjectId)(friendId)
+        });
+        if (!friend)
+            throw new exception_1.NotFoundException("User not found");
+        if (user._id.equals(friend._id))
+            throw new exception_1.BadRequestException("You cannot block yourself");
+        await Promise.all([
+            this.userRepository.updateOne({
+                filter: { _id: user._id },
+                update: {
+                    $addToSet: {
+                        blockedUsers: friend._id
+                    },
+                    $pull: {
+                        friends: friend._id
+                    }
+                }
+            }),
+            this.userRepository.updateOne({
+                filter: { _id: friend._id },
+                update: {
+                    $pull: {
+                        friends: user._id
+                    }
+                }
+            })
+        ]);
     }
 }
 exports.default = new UserService();

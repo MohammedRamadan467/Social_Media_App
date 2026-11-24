@@ -85,7 +85,11 @@ class DatabaseRepository {
         return await this.model.updateMany(filter, update, options);
     }
     async findOneAndUpdate({ filter = {}, update, options }) {
-        return await this.model.findOneAndUpdate(filter, update, { returnDocument: 'after', ...options });
+        if (Array.isArray(update)) {
+            update.push({ $set: { __v: { $add: ["$__v", 1] } } });
+            return await this.model.findOneAndUpdate(filter, update, { returnDocument: 'after', ...options, updatePipeline: true });
+        }
+        return await this.model.findOneAndUpdate(filter, { ...update, $inc: { __v: 1 } }, { returnDocument: 'after', ...options });
     }
     async findByIdAndUpdate({ id, update, options }) {
         return await this.model.findByIdAndUpdate(id, update, { returnDocument: 'after', ...options });

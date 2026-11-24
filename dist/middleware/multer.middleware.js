@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.uploadMiddleware = void 0;
 const domain_exception_js_1 = require("../common/exception/domain.exception.js");
 const multer_1 = require("../common/utlis/multer");
-const uploadMiddleware = ({ isRequired = true, multerMiddleware, customPath = "general", validation }) => {
+const uploadMiddleware = ({ isRequired = false, multerMiddleware, customPath = "general", validation }) => {
     return (req, res, next) => {
         multerMiddleware(req, res, async (error) => {
             if (error) {

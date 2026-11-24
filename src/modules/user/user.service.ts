@@ -3,7 +3,7 @@ import { BadRequestException, ConflictException, NotFoundException } from "../..
 import { followRepository, FollowRepository, userRepository, UserRepository } from "../../common/repository";
 import { CacheService, cacheService, cloudService, CloudService} from "../../common/service";
 import { ACCESS_TOKEN_EXPIRES_IN, REFRESH_TOKEN_EXPIRES_IN } from "../../config";
-import { IUser } from "../../common/interface";
+import { IFriendRequest, IUser } from "../../common/interface";
 import mongoose, { HydratedDocument } from "mongoose";
 import { GenderEnum, LogoutEnum } from "../../common/enum";
 import { IFollow } from "../../common/interface/follow.interface";
@@ -11,12 +11,16 @@ import { decryption, encryption, JwtPayloadType, tokenService, TokenService } fr
 import { HUser } from "../../DB/model";
 import { toObjectId } from "../../common/utlis";
 import { IFile } from "../../common/types";
+import { AcceptFriendRequestDto,BlockFriendRequestDto,SendFriendRequestDto, UnFriendRequestDto} from "./dto/user.dto";
+import { friendRequestRepository, FriendRequestRepository } from "../../common/repository/friendRequest.repository";
+import { FriendRequestEnum } from "../../common/enum/friendRequest.enum";
 
 
 class UserService {
   private readonly userRepository: UserRepository
   private readonly cacheService: CacheService
   private readonly followRepository: FollowRepository
+  private readonly friendRequestRepository: FriendRequestRepository
   private readonly tokenService : TokenService
   private readonly cloudService : CloudService
 
@@ -26,16 +30,41 @@ class UserService {
     this.followRepository = followRepository
     this.tokenService = tokenService
     this.cloudService = cloudService
+    this.friendRequestRepository = friendRequestRepository
     
   }
 
+  //  async profileImage({ContentType , Originalname}:{ContentType:string , Originalname:string} , user:HUser):Promise<string>{
+  //  const oldImage = user.image
+  //  const { Key , url} = await this.cloudService.createPreSignedUploadAssetLink({Originalname , ContentType , path:`User/${user._id.toString()}/profile` })
+  //  user.image = Key as string
+  //  await user.save()
+  //  return url
+  // }
 
-   async profileImage(file:IFile , user:HUser):Promise<string>{
-    const key = await this.cloudService.uploadAsset({
-      file,
-      folder:`User/${user._id.toString()}`
-    })
-    return key
+
+   async profileImage(file:IFile , user:HUser):Promise<IUser>{
+   const oldImage = user.image
+   const { Key } = await this.cloudService.uploadLargeAsset({file , path:`User/${user._id.toString()}/profile` })
+   user.image = Key as string
+   await user.save()
+
+   if (oldImage?.length) {
+    await this.cloudService.deleteAsset({Key : oldImage})
+   }
+   return user.toJSON()
+  }
+
+
+   async profileCoverImages(files:IFile[] , user:HUser):Promise<IUser>{
+   const oldCover = user.coverImage || []
+   user.coverImage = await this.cloudService.uploadAssets({files , path:`User/${user._id.toString()}/profile/cover` })
+   await user.save()
+
+    if (oldCover?.length) {
+    await this.cloudService.deleteAssets({Keys : oldCover})
+   }
+   return user.toJSON()
   }
 
 
@@ -295,11 +324,168 @@ async deleteAccount(user: IUser) {
     filter: { _id: user._id }
   });
 
+  await this.cloudService.deleteFolderByPrefix({Prefix: `User/${user._id.toString()}`})
   return { message: "Account deleted successfully" };
 }
 
 
 
+async sendFriendRequest({receiverId , note}:SendFriendRequestDto,user: HUser):Promise<IFriendRequest> {
+
+  const receiver = await this.userRepository.findById({id:toObjectId(receiverId)})
+   if(!receiver) throw new NotFoundException("Invalid receiver account")
+
+    if (user._id.toString() === receiver._id.toString()) {
+  throw new ConflictException("You cannot send a friend request to yourself");
 }
+  const checkResquestDuplicate = await this.friendRequestRepository.findOne({
+    filter:{
+      senderId:{$in : [user._id , receiverId]},
+      receiverId:{$in : [user._id , receiverId]}
+    }
+  })
+   if(checkResquestDuplicate) throw new ConflictException("Request already exist")
+
+    const request  = await this.friendRequestRepository.create({
+         data:{
+          senderId:user._id,
+          receiverId : receiver._id,
+          note
+         }
+    })
+
+
+    return request.toJSON()
+}
+
+async acceptFriendRequest({friendRequestId}:AcceptFriendRequestDto ,user: HUser):Promise<IFriendRequest> {
+const request = await this.friendRequestRepository.findOneAndUpdate({
+  filter:{
+    _id:friendRequestId,
+    status:FriendRequestEnum.PENDING,
+    receiverId: user._id
+  },
+  update:{
+    status:FriendRequestEnum.ACCEPTED
+  }
+})
+   if(!request) throw new NotFoundException("Invalid request")
+
+   await Promise.all([
+    this.userRepository.updateOne({
+      filter:{_id : request.senderId as mongoose.Types.ObjectId},
+      update:{
+        $addToSet: {friends : request.receiverId}
+      }
+    }),
+
+     this.userRepository.updateOne({
+      filter:{_id: request.receiverId as mongoose.Types.ObjectId},
+      update:{
+        $addToSet: {friends : request.senderId}
+      }
+    })
+   ])
+
+    return request.toJSON()
+  
+}
+
+async cancelFriendRequest({friendRequestId}:AcceptFriendRequestDto ,user: HUser):Promise<IFriendRequest> {
+const request = await this.friendRequestRepository.findOneAndDelete({
+  filter:{
+    _id:friendRequestId,
+    status:FriendRequestEnum.PENDING,
+    $or:[{senderId : user._id}, {receiverId: user._id}]
+  }
+})
+   if(!request) throw new NotFoundException("Invalid request")
+
+    return request.toJSON()
+  
+}
+
+
+async unFriend({friendId}:UnFriendRequestDto, user: HUser ): Promise<void> {
+
+  const friend = await this.userRepository.findById({
+    id: toObjectId(friendId)
+  });
+
+  if (!friend)
+    throw new NotFoundException("Friend account not found");
+
+  if (user._id.equals(friend._id))
+    throw new BadRequestException("You cannot unfriend yourself");
+
+  const isFriend = await this.userRepository.findOne({
+    filter: {
+      _id: user._id,
+      friends: friend._id
+    }
+  });
+
+  if (!isFriend)
+    throw new BadRequestException("This user is not your friend");
+
+  await Promise.all([
+    this.userRepository.updateOne({
+      filter: { _id: user._id },
+      update: {
+        $pull: { friends: friend._id }
+      }
+    }),
+
+    this.userRepository.updateOne({
+      filter: { _id: friend._id },
+      update: {
+        $pull: { friends: user._id }
+      }
+    })
+  ]);
+}
+
+
+
+
+async blockFriend({friendId}:BlockFriendRequestDto, user: HUser ): Promise<void> {
+
+  const friend = await this.userRepository.findById({
+    id: toObjectId(friendId)
+  });
+
+  if (!friend)
+    throw new NotFoundException("User not found");
+
+  if (user._id.equals(friend._id))
+    throw new BadRequestException("You cannot block yourself");
+
+  await Promise.all([
+    this.userRepository.updateOne({
+      filter: { _id: user._id },
+      update: {
+        $addToSet: {
+          blockedUsers: friend._id
+        },
+        $pull: {
+          friends: friend._id
+        }
+      }
+    }),
+
+    this.userRepository.updateOne({
+      filter: { _id: friend._id },
+      update: {
+        $pull: {
+          friends: user._id
+        }
+      }
+    })
+  ]);
+}
+}
+
+
+
 
 export default new UserService()
